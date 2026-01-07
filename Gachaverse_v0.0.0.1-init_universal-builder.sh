@@ -2,7 +2,9 @@
 
 apt update -qq
 apt upgrade -y -qq
-apt install -y -qq build-essential scons pkg-config libx11-dev libxcursor-dev libxinerama-dev libgl1-mesa-dev libglu1-mesa-dev libasound2-dev libpulse-dev libdbus-1-dev libudev-dev libxi-dev libxrandr-dev unzip wget openjdk-17-jdk python3 git imagemagick
+apt install -y -qq build-essential scons pkg-config libx11-dev libxcursor-dev libxinerama-dev libgl1-mesa-dev libglu1-mesa-dev libasound2-dev libpulse-dev libdbus-1-dev libudev-dev libxi-dev libxrandr-dev unzip wget openjdk-17-jdk python3 python3-pip git
+
+pip3 install -q gdown
 
 rm -rf workspace
 mkdir -p workspace/Gachaverse
@@ -17,38 +19,42 @@ rm cmd.zip
 cd ../../
 
 yes | sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=sdk --licenses > /dev/null 2>&1
-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=sdk "platform-tools" "platforms;android-34" "build-tools;34.0.0" "ndk;23.2.8568313" > /dev/null 2>&1
+sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=sdk "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;23.2.8568313" > /dev/null 2>&1
 
-wget -q https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip -O godot.zip
+wget -q https://github.com/godotengine/godot/releases/download/4.4-stable/Godot_v4.4-stable_linux.x86_64.zip -O godot.zip
 unzip -q godot.zip
-mv Godot_v4.3-stable_linux.x86_64 godot
+mv Godot_v4.4-stable_linux.x86_64 godot
 chmod +x godot
 rm godot.zip
 
-mkdir -p templates/4.3.stable
-wget -q https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz -O templates.zip
+mkdir -p templates/4.4.stable
+wget -q https://github.com/godotengine/godot/releases/download/4.4-stable/Godot_v4.4-stable_export_templates.tpz -O templates.zip
 unzip -q templates.zip
-mv templates/* templates/4.3.stable/
+mv templates/* templates/4.4.stable/
 rmdir templates 2>/dev/null
 rm templates.zip
 
 mkdir -p ~/.local/share/godot/export_templates
-rm -rf ~/.local/share/godot/export_templates/4.3.stable
-ln -sf "$(pwd)/templates/4.3.stable" ~/.local/share/godot/export_templates/4.3.stable
+rm -rf ~/.local/share/godot/export_templates/4.4.stable
+ln -sf "$(pwd)/templates/4.4.stable" ~/.local/share/godot/export_templates/4.4.stable
 
-mkdir -p app icons key out
+mkdir -p app/assets app/fonts app/scenes app/scripts icons key out
 
-convert -size 192x192 xc:black icons/icon_192.png
-convert -size 432x432 xc:black icons/icon_432.png
-cp icons/icon_192.png app/icon.png
+gdown -q "1DrVpx3Vu8TSmPSO19BVwgAcnclRmJzjs" -O icons/icon.png
+gdown -q "1_xqZ1nklNxjNwRf5F4i9Z30D4s80TGc3" -O app/assets/background.png
+gdown -q "1RPyR4l8lePcyTGVgbtOGCDM_HkAq2dK8" -O app/assets/music.mp3
+
+wget -q "https://github.com/googlefonts/orbitron/raw/main/fonts/ttf/Orbitron-Black.ttf" -O app/fonts/Orbitron-Black.ttf
+
+cp icons/icon.png app/icon.png
 
 cat > app/project.godot << 'EOF'
 config_version=5
 [application]
 config/name="Gachaverse"
-config/version="0.0.0.0-init"
-run/main_scene="res://main.tscn"
-config/features=PackedStringArray("4.3")
+config/version="0.0.0.1-init"
+run/main_scene="res://scenes/splash.tscn"
+config/features=PackedStringArray("4.4")
 config/icon="res://icon.png"
 [display]
 window/size/viewport_width=1080
@@ -57,34 +63,107 @@ window/handheld/orientation=1
 [rendering]
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
-renderer/rendering_method.web="gl_compatibility"
 textures/vram_compression/import_etc2_astc=true
 environment/defaults/default_clear_color=Color(0, 0, 0, 1)
 EOF
 
-cat > app/main.tscn << 'EOF'
+cat > app/scripts/splash.gd << 'EOF'
+extends Control
+
+func _ready():
+	$Music.finished.connect(_music_end)
+	$TapButton.pressed.connect(_tap)
+
+func _music_end():
+	get_tree().quit()
+
+func _tap():
+	get_tree().change_scene_to_file("res://scenes/main.tscn")
+EOF
+
+cat > app/scenes/splash.tscn << 'EOF'
+[gd_scene load_steps=5 format=3 uid="uid://splash"]
+
+[ext_resource type="Texture2D" path="res://assets/background.png" id="1"]
+[ext_resource type="AudioStream" path="res://assets/music.mp3" id="2"]
+[ext_resource type="FontFile" path="res://fonts/Orbitron-Black.ttf" id="3"]
+[ext_resource type="Script" path="res://scripts/splash.gd" id="4"]
+
+[node name="Splash" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("4")
+
+[node name="Background" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+texture = ExtResource("1")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="TapLabel" type="Label" parent="."]
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -540.0
+offset_top = -192.0
+offset_right = 540.0
+offset_bottom = -96.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.7)
+theme_override_colors/font_outline_color = Color(0.2, 0, 0.4, 1)
+theme_override_constants/shadow_offset_x = 3
+theme_override_constants/shadow_offset_y = 3
+theme_override_constants/outline_size = 8
+theme_override_fonts/font = ExtResource("3")
+theme_override_font_sizes/font_size = 64
+text = "Tap Screen"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="TapButton" type="Button" parent="."]
+modulate = Color(1, 1, 1, 0)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+focus_mode = 0
+
+[node name="Music" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("2")
+autoplay = true
+EOF
+
+cat > app/scenes/main.tscn << 'EOF'
 [gd_scene format=3 uid="uid://main"]
+
 [node name="Main" type="Control"]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-[node name="Background" type="ColorRect" parent="."]
+
+[node name="WhiteBackground" type="ColorRect" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-color = Color(0, 0, 0, 1)
+color = Color(1, 1, 1, 1)
 EOF
 
 keytool -genkeypair -keystore key/release.keystore -alias gachaverse -keyalg RSA -keysize 2048 -validity 10000 -storepass gachaverse -keypass gachaverse -dname "CN=Gachaverse,OU=Void,O=ICHxTenebra,L=Unknown,ST=Unknown,C=XX" 2>/dev/null
 
 mkdir -p ~/.config/godot
-cat > ~/.config/godot/editor_settings-4.3.tres << EOF
+cat > ~/.config/godot/editor_settings-4.4.tres << EOF
 [gd_resource type="EditorSettings" format=3]
 [resource]
 export/android/android_sdk_path = "$(pwd)/sdk"
@@ -121,7 +200,7 @@ custom_template/release=""
 gradle_build/use_gradle_build=true
 gradle_build/export_format=0
 gradle_build/min_sdk="23"
-gradle_build/target_sdk="34"
+gradle_build/target_sdk="35"
 architectures/armeabi-v7a=$1
 architectures/arm64-v8a=$2
 architectures/x86=$3
@@ -132,8 +211,8 @@ keystore/debug_password="gachaverse"
 keystore/release="$KEYSTORE"
 keystore/release_user="gachaverse"
 keystore/release_password="gachaverse"
-version/code=1
-version/name="0.0.0.0-init"
+version/code=2
+version/name="0.0.0.1-init"
 package/unique_name="Help_From_the_Void_Independent_Systems.ICHxTenebra.Gachaverse"
 package/name="Gachaverse"
 package/signed=true
@@ -307,9 +386,9 @@ EOF
 build_apk() {
     rm -rf app/android app/.godot
     mkdir -p app/android/build
-    unzip -q templates/4.3.stable/android_source.zip -d app/android/build
+    unzip -q templates/4.4.stable/android_source.zip -d app/android/build
     touch app/android/.gdignore
-    echo "4.3.stable" > app/android/.build_version
+    echo "4.4.stable" > app/android/.build_version
     cd app
     GODOT_SILENCE_ROOT_WARNING=1 JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 ANDROID_HOME="$(dirname $(pwd))/sdk" ../godot --headless --export-release "Android" "../out/$1" &
     PID=$!
@@ -333,23 +412,29 @@ sleep 2
 
 echo "=== BUILD 1/5: universal ==="
 write_preset true true true true
-build_apk "Gachaverse_v0.0.0.0-init_universal.apk"
+build_apk "Gachaverse_v0.0.0.1-init_universal.apk"
 
 echo "=== BUILD 2/5: arm64-v8a ==="
 write_preset false true false false
-build_apk "Gachaverse_v0.0.0.0-init_arm64-v8a.apk"
+build_apk "Gachaverse_v0.0.0.1-init_arm64-v8a.apk"
 
 echo "=== BUILD 3/5: armeabi-v7a ==="
 write_preset true false false false
-build_apk "Gachaverse_v0.0.0.0-init_armeabi-v7a.apk"
+build_apk "Gachaverse_v0.0.0.1-init_armeabi-v7a.apk"
 
 echo "=== BUILD 4/5: x86_64 ==="
 write_preset false false false true
-build_apk "Gachaverse_v0.0.0.0-init_x86_64.apk"
+build_apk "Gachaverse_v0.0.0.1-init_x86_64.apk"
 
 echo "=== BUILD 5/5: x86 ==="
 write_preset false false true false
-build_apk "Gachaverse_v0.0.0.0-init_x86.apk"
+build_apk "Gachaverse_v0.0.0.1-init_x86.apk"
+
+cd out
+echo ""
+echo "SHA-256:"
+for f in *.apk; do echo "$f: $(sha256sum "$f" | cut -d' ' -f1)"; done
+cd ..
 
 ls -lh out/
 
@@ -358,28 +443,9 @@ echo "====================================================================="
 echo "                         BUILD COMPLETE                              "
 echo "====================================================================="
 echo ""
-echo "  workspace/Gachaverse/"
-echo "  ├── app/"
-echo "  │   ├── android/"
-echo "  │   ├── icon.png"
-echo "  │   ├── main.tscn"
-echo "  │   ├── project.godot"
-echo "  │   └── export_presets.cfg"
-echo "  ├── icons/"
-echo "  ├── key/"
-echo "  │   └── release.keystore"
-echo "  ├── out/"
-echo "  │   ├── Gachaverse_v0.0.0.0-init_universal.apk"
-echo "  │   ├── Gachaverse_v0.0.0.0-init_arm64-v8a.apk"
-echo "  │   ├── Gachaverse_v0.0.0.0-init_armeabi-v7a.apk"
-echo "  │   ├── Gachaverse_v0.0.0.0-init_x86_64.apk"
-echo "  │   └── Gachaverse_v0.0.0.0-init_x86.apk"
-echo "  ├── sdk/"
-echo "  ├── templates/"
-echo "  └── godot"
-echo ""
+echo "  Version: 0.0.0.1-init"
+echo "  Engine: Godot 4.4 Stable"
 echo "  Min SDK: 23 (Android 6.0)"
-echo "  Target SDK: 34 (Android 14)"
-echo "  Renderer: OpenGL ES 3.0 (gl_compatibility)"
+echo "  Target SDK: 35 (Android 15)"
 echo ""
 echo "====================================================================="
